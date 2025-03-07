@@ -3,7 +3,7 @@ mod vectors;
 mod kmeans;
 mod search;
 
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use rand::{random, rng, Rng};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
@@ -15,7 +15,8 @@ fn main() {
     let vectors_count = 200000;
     let dimensions = 512;
     let nlist = 64;
-    let kmeans_tries = 1;
+    let threads = 8;
+    let kmeans_tries_per_thread = 1;
     let max_iterations = 100;
     let nprobe = 16;
     let topk = 5;
@@ -30,11 +31,26 @@ fn main() {
     let duration = SystemTime::now().duration_since(start);
     println!("generated in {duration:?}");
 
-    let init = InitKmeansPP{nlist, rng};
+    let mut inits = Vec::with_capacity(threads);
+    for _ in 0..threads {
+        // todo: decide which is the best way to init, random or kmeans++
+        // todo: actually in my fixed setup random seems to have better recall than ++
+        inits.push(InitRandom{
+            nlist,
+            rng: SmallRng::seed_from_u64(rng.random()),
+        });
+        /*inits.push(InitKmeansPP{
+            nlist,
+            rng: SmallRng::seed_from_u64(rng.random()),
+        });*/
+    }
+    println!("start clustering in {threads} threads {kmeans_tries_per_thread} tries each");
     let start = SystemTime::now();
-    let (centroids, clusters, wcss, iter) = kmeans_multi_try(&vectors, init, kmeans_tries, max_iterations);
+    let (centroids, clusters, wcss, best_thread, best_iter) = kmeans_multi_try_multi_thread(&vectors, inits.as_mut_slice(), kmeans_tries_per_thread, max_iterations);
     let duration = SystemTime::now().duration_since(start);
-    println!("clustered in {duration:?} wcss {wcss} best iter {iter}");
+    println!("clustered in {duration:?} wcss {wcss} best thread {best_thread} iter {best_iter}");
+
+    // todo: after optimizing clustering, optimize search too!
 
     let search = vectors.get(5).to_vec();
 
@@ -112,15 +128,13 @@ flat search after clustering in Ok(8.751ms)
 clustered search in Ok(2.156ms)
      */
 
-    // todo: choose a better metric than wcss
+    // todo: is there any better metric than wcss? (looks like faiss uses wcss for deciding best try?)
     // todo: what should be the amount of kmeans++ retries?
     // todo: test on actual datasets, and not randomly generated
     // todo: bench different cases: more vectors with less dimensions, less vectors with more dimensions
     // todo: looks like my clustering has kinda bad recall?
 
-    // todo: maybe optimise the simple version
-    // todo: do parallel, simd, simd+parallel, 
-    // todo: gpu
-    // todo: compare with faiss. Do they use any different algorithms? what are the speeds?
+    // todo: compare speed with faiss
+    // todo: try to use gpu?
     // todo: implement quantized ivf
 }

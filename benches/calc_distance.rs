@@ -6,6 +6,7 @@ extern crate test;
 mod vectors;
 use std::simd::f32x4;
 use std::simd::f32x16;
+use std::simd::StdFloat;
 
 // run with
 // cargo +nightly bench
@@ -186,11 +187,47 @@ fn calc_distance_sq_simd_x16_v3(mut v1: &[f32], mut v2: &[f32]) -> f32 {
 }
 
 /*
+using fused multiply-add
+for aarch64 i see that it emits fmla instead of fmul fadd, but there seems to be no change in performance
+there is no change in performance for 512, but 527 and 271 seem to be faster somehow? why? 
+for x64 the generated assembly looks insane
+both of these were only checked in godbolt, so maybe check if actual generated assembly is the same
+ */
+fn calc_distance_sq_simd_x16_fma(mut v1: &[f32], mut v2: &[f32]) -> f32 {
+    let mut sum = f32x16::splat(0.0);
+    let iterations = v1.len() / 16;
+    for _ in 0..iterations {
+        let val1 = f32x16::from_slice(unsafe { v1.get_unchecked(..16) });
+        v1 = unsafe { v1.get_unchecked(16..) };
+        let val2 = f32x16::from_slice(unsafe { v2.get_unchecked(..16) });
+        v2 = unsafe { v2.get_unchecked(16..) };
+        let diff = val1 - val2;
+        sum = diff.mul_add(diff, sum);
+    }
+    let sum = sum.as_array();
+    let sum = f32x4::from_slice(unsafe { sum.get_unchecked(0..4) })
+        + f32x4::from_slice(unsafe { sum.get_unchecked(4..8) })
+        + f32x4::from_slice(unsafe { sum.get_unchecked(8..12) })
+        + f32x4::from_slice(unsafe { sum.get_unchecked(12..16) });
+    let mut sum = sum.as_array().iter().sum();
+    for (index, value1) in v1.iter().enumerate() {
+        let value2 = unsafe{ v2.get_unchecked(index) };
+        let diff = value1 - value2;
+        sum += diff * diff;
+    }
+    sum
+}
+
+/*
 try to improve more!
 todo: things left to improve:
 use post-indexed loads instead of simple load + 2 adds. Not sure if it's actually faster, but i want to try to test it.
 skip summing zeroes for the small size path (can be done easily, but for some reason adds unnecessary instructions to the main path)
+    (i'm talking about creating zeroed f32x16 and summing it when size is <16)
+try to make fused multiply add work properly?
 i'm out of ideas how to make the compiler do what i want
+    maybe just use intrinsics?
+can the small path be optimised too? 527 is 1.5 times slower than 512
  */
 fn calc_distance_sq_test(mut v1: &[f32], mut v2: &[f32]) -> f32 {
     let mut sum = f32x16::splat(0.0);
@@ -237,6 +274,7 @@ mod bench {
             calc_distance_sq_simd_x16,
             calc_distance_sq_simd_x16_v2,
             calc_distance_sq_simd_x16_v3,
+            calc_distance_sq_simd_x16_fma,
             calc_distance_sq_test,
         ];
         let mut numbers = [0.0; 100];
@@ -297,5 +335,6 @@ mod bench {
     bench_calc_distance!(calc_distance_sq_simd_x16);
     bench_calc_distance!(calc_distance_sq_simd_x16_v2);
     bench_calc_distance!(calc_distance_sq_simd_x16_v3);
+    bench_calc_distance!(calc_distance_sq_simd_x16_fma);
     bench_calc_distance!(calc_distance_sq_test);
 }

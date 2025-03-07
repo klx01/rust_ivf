@@ -31,7 +31,7 @@ pub(crate) fn apply_clusters(vectors: &mut VectorsList, clusters: &[Vec<usize>])
             .copied()
             .collect::<Vec<_>>()
             .into_boxed_slice();
-    debug_assert!(clusters_flat.len() == vectors.count);
+    debug_assert_eq!(clusters_flat.len(), vectors.count);
 
     // todo: there might be a better algorithm for applying a permutation to an array 
     let mut actual_indexes = (0..vectors.count).collect::<Vec<_>>().into_boxed_slice();
@@ -60,7 +60,7 @@ pub(crate) fn apply_clusters(vectors: &mut VectorsList, clusters: &[Vec<usize>])
 }
 
 pub(crate) fn flat_search(vectors: &VectorsList, search: &[f32], topk: usize) -> BinaryHeap<SearchPair> {
-    debug_assert!(vectors.dim == search.len());
+    debug_assert_eq!(vectors.dim, search.len());
     let topk = topk.min(vectors.count);
     let mut heap = BinaryHeap::<SearchPair>::with_capacity(topk);
     if topk == 0 {
@@ -81,10 +81,10 @@ pub(crate) fn flat_search(vectors: &VectorsList, search: &[f32], topk: usize) ->
 }
 
 pub(crate) fn search_clustered_by_indices(vectors: &VectorsList, centroids: &VectorsList, clusters: &[Vec<usize>], search: &[f32], nprobe: usize, topk: usize) -> BinaryHeap<SearchPair> {
-    debug_assert!(vectors.dim == centroids.dim);
+    debug_assert_eq!(vectors.dim, centroids.dim);
     debug_assert!(vectors.count >= centroids.count);
-    debug_assert!(centroids.count == clusters.len());
-    debug_assert!(vectors.dim == search.len());
+    debug_assert_eq!(centroids.count, clusters.len());
+    debug_assert_eq!(vectors.dim, search.len());
     let nprobe = nprobe.min(centroids.count);
     let topk = topk.min(vectors.count);
     if (topk == 0) || (nprobe == 0) {
@@ -103,7 +103,7 @@ pub(crate) fn search_clustered_by_indices(vectors: &VectorsList, centroids: &Vec
 }
 
 fn search_by_indices(vectors: &VectorsList, indices: &[usize], search: &[f32], topk: usize) -> BinaryHeap<SearchPair> {
-    debug_assert!(vectors.dim == search.len());
+    debug_assert_eq!(vectors.dim, search.len());
     let topk = topk.min(indices.len());
     let mut heap = BinaryHeap::<SearchPair>::with_capacity(topk);
     if topk == 0 {
@@ -150,10 +150,10 @@ pub(crate) fn restore_indices(search_results: &mut [SearchPair], orig_indices: &
 }
 
 pub(crate) fn search_clustered(vectors: &VectorsList, centroids: &VectorsList, clusters: &[Cluster], search: &[f32], nprobe: usize, topk: usize) -> BinaryHeap<SearchPair> {
-    debug_assert!(vectors.dim == centroids.dim);
+    debug_assert_eq!(vectors.dim, centroids.dim);
     debug_assert!(vectors.count >= centroids.count);
-    debug_assert!(centroids.count == clusters.len());
-    debug_assert!(vectors.dim == search.len());
+    debug_assert_eq!(centroids.count, clusters.len());
+    debug_assert_eq!(vectors.dim, search.len());
     let nprobe = nprobe.min(centroids.count);
     let topk = topk.min(vectors.count);
     if (topk == 0) || (nprobe == 0) {
@@ -171,7 +171,7 @@ pub(crate) fn search_clustered(vectors: &VectorsList, centroids: &VectorsList, c
 }
 
 fn search_cluster(vectors: &VectorsList, cluster: Cluster, search: &[f32], topk: usize) -> BinaryHeap<SearchPair> {
-    debug_assert!(vectors.dim == search.len());
+    debug_assert_eq!(vectors.dim, search.len());
     debug_assert!((cluster.start_index + cluster.length) <= vectors.count);
     let topk = topk.min(cluster.length);
     let mut heap = BinaryHeap::<SearchPair>::with_capacity(topk);

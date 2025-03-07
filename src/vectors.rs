@@ -4,7 +4,7 @@ use rand::Rng;
 pub(crate) struct VectorsList {
     pub count: usize,
     pub dim: usize,
-    data: Box<[f32]>,
+    pub data: Box<[f32]>, // for now this is public for easier testing of multi-threaded stuff
 }
 impl VectorsList {
     pub fn new(count: usize, dim: usize) -> Self {
@@ -53,7 +53,7 @@ impl VectorsList {
     fn from_parts(count: usize, dim: usize, data: Box<[f32]>) -> Self {
         debug_assert!(count > 0);
         debug_assert!(dim > 0);
-        debug_assert!(data.len() == count * dim);
+        debug_assert_eq!(data.len(), count * dim);
         Self{count, dim, data}
     }
     pub fn get(&self, index: usize) -> &[f32] {
@@ -76,7 +76,7 @@ impl VectorsList {
     pub fn swap(&mut self, index1: usize, index2: usize) {
         debug_assert!(index1 < self.count);
         debug_assert!(index2 < self.count);
-        debug_assert!(index1 != index2);
+        debug_assert_ne!(index1, index2);
         let (index1, index2) = if index1 > index2 {
             (index2, index1)
         } else {
